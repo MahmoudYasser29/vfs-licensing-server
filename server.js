@@ -219,15 +219,15 @@ app.get('/api/updates.xml', async (req, res) => {
 app.get('/api/download/extension.crx', (req, res) => {
   const fs = require('fs');
   const path = require('path');
-  const crxPath = path.join(__dirname, 'public', 'vfs-commander-pro.crx');
+  const crxPath = path.join(__dirname, 'private', 'build.crx');
   
   if (fs.existsSync(crxPath)) {
-    res.download(crxPath);
+    res.download(crxPath, 'VFS-Commander-Pro.crx');
   } else {
     res.status(404).json({
       success: false,
       error: 'FILE_NOT_FOUND',
-      message: 'Extension file not found. Please upload the .crx file to backend/public/'
+      message: 'Extension file not found. Please upload the .crx file to vfs-licensing-server/private/build.crx'
     });
   }
 });
