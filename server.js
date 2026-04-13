@@ -13,8 +13,8 @@ app.use(express.static('public'));
 
 // MongoDB Connection
 mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/vfs-licenses')
-.then(() => console.log('✅ Connected to MongoDB'))
-.catch(err => console.error('❌ MongoDB connection error:', err));
+  .then(() => console.log('✅ Connected to MongoDB'))
+  .catch(err => console.error('❌ MongoDB connection error:', err));
 
 // Helper function to generate license code
 function generateLicenseCode() {
@@ -22,24 +22,24 @@ function generateLicenseCode() {
   const segmentLength = 4;
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   let code = '';
-  
+
   for (let i = 0; i < segments; i++) {
     for (let j = 0; j < segmentLength; j++) {
       code += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     if (i < segments - 1) code += '-';
   }
-  
+
   return code;
 }
 
 // Helper function to get client IP
 function getClientIP(req) {
-  return req.headers['x-forwarded-for']?.split(',')[0] || 
-         req.headers['x-real-ip'] || 
-         req.connection.remoteAddress || 
-         req.socket.remoteAddress ||
-         'unknown';
+  return req.headers['x-forwarded-for']?.split(',')[0] ||
+    req.headers['x-real-ip'] ||
+    req.connection.remoteAddress ||
+    req.socket.remoteAddress ||
+    'unknown';
 }
 
 // ==========================================
@@ -49,8 +49,8 @@ function getClientIP(req) {
 // POST /api/license/validate - Activate a license
 app.post('/api/license/validate', async (req, res) => {
   try {
-    const { code, deviceFingerprint, deviceInfo } = req.body;
-    
+    const { code, deviceFingerprint, deviceInfo, appType } = req.body;
+
     if (!code || !deviceFingerprint) {
       return res.status(400).json({
         success: false,
@@ -58,10 +58,12 @@ app.post('/api/license/validate', async (req, res) => {
         message: 'الكود وبصمة الجهاز مطلوبة'
       });
     }
-    
+
+    const targetAppType = appType || 'vfs';
+
     // Find license
     const license = await License.findOne({ code: code.toUpperCase() });
-    
+
     if (!license) {
       return res.status(404).json({
         success: false,
@@ -69,7 +71,15 @@ app.post('/api/license/validate', async (req, res) => {
         message: 'الكود غير صحيح. برجاء التحقق من الكود والمحاولة مرة أخرى'
       });
     }
-    
+
+    if (license.appType !== targetAppType) {
+      return res.status(403).json({
+        success: false,
+        error: 'INVALID_APP_TYPE',
+        message: 'هذا الكود غير مخصص لهذا التطبيق'
+      });
+    }
+
     // Check if license is valid
     if (!license.isValid()) {
       if (license.revoked) {
@@ -79,14 +89,14 @@ app.post('/api/license/validate', async (req, res) => {
           message: 'هذا الكود محظور. برجاء التواصل مع المبرمج'
         });
       }
-      
+
       return res.status(403).json({
         success: false,
         error: 'CODE_EXPIRED',
         message: 'انتهت صلاحية هذا الكود. برجاء التواصل مع المبرمج للتجديد'
       });
     }
-    
+
     // Check if device can activate
     if (!license.canActivateDevice(deviceFingerprint)) {
       return res.status(403).json({
@@ -95,15 +105,15 @@ app.post('/api/license/validate', async (req, res) => {
         message: 'هذا الكود مستخدم على جهاز آخر. برجاء التواصل مع المبرمج لإعادة التفعيل'
       });
     }
-    
+
     // Update device info
     const ipAddress = getClientIP(req);
     license.updateDevice(deviceFingerprint, deviceInfo, ipAddress);
     await license.save();
-    
+
     // Calculate days remaining
     const daysRemaining = Math.ceil((license.expiresAt - new Date()) / (1000 * 60 * 60 * 24));
-    
+
     // Return success
     res.json({
       success: true,
@@ -112,7 +122,7 @@ app.post('/api/license/validate', async (req, res) => {
       daysRemaining: daysRemaining > 0 ? daysRemaining : 0,
       allowedCountries: license.allowedCountries
     });
-    
+
   } catch (error) {
     console.error('Validation error:', error);
     res.status(500).json({
@@ -126,8 +136,8 @@ app.post('/api/license/validate', async (req, res) => {
 // POST /api/license/check - Re-validate existing license
 app.post('/api/license/check', async (req, res) => {
   try {
-    const { licenseId, deviceFingerprint } = req.body;
-    
+    const { licenseId, deviceFingerprint, appType } = req.body;
+
     if (!licenseId || !deviceFingerprint) {
       return res.status(400).json({
         success: false,
@@ -135,8 +145,10 @@ app.post('/api/license/check', async (req, res) => {
       });
     }
     
+    const targetAppType = appType || 'vfs';
+
     const license = await License.findById(licenseId);
-    
+
     if (!license) {
       return res.status(404).json({
         success: false,
@@ -144,18 +156,26 @@ app.post('/api/license/check', async (req, res) => {
         message: 'الترخيص غير موجود'
       });
     }
-    
+
+    if (license.appType !== targetAppType) {
+      return res.status(403).json({
+        success: false,
+        error: 'INVALID_APP_TYPE',
+        message: 'هذا الكود غير مخصص لهذا التطبيق'
+      });
+    }
+
     // Check if license is valid
     if (!license.isValid()) {
       return res.status(403).json({
         success: false,
         error: license.revoked ? 'LICENSE_REVOKED' : 'CODE_EXPIRED',
-        message: license.revoked 
-          ? 'تم إلغاء هذا الترخيص' 
+        message: license.revoked
+          ? 'تم إلغاء هذا الترخيص'
           : 'انتهت صلاحية الترخيص'
       });
     }
-    
+
     // Check if device is still valid
     const device = license.devices.find(d => d.fingerprint === deviceFingerprint);
     if (!device) {
@@ -165,7 +185,7 @@ app.post('/api/license/check', async (req, res) => {
         message: 'الجهاز غير مسجل'
       });
     }
-    
+
     if (device.blocked) {
       return res.status(403).json({
         success: false,
@@ -173,20 +193,20 @@ app.post('/api/license/check', async (req, res) => {
         message: 'هذا الجهاز محظور. برجاء التواصل مع المبرمج'
       });
     }
-    
+
     // Update last seen
     device.lastSeen = new Date();
     await license.save();
-    
+
     const daysRemaining = Math.ceil((license.expiresAt - new Date()) / (1000 * 60 * 60 * 24));
-    
+
     res.json({
       success: true,
       expiresAt: license.expiresAt,
       daysRemaining: daysRemaining > 0 ? daysRemaining : 0,
       allowedCountries: license.allowedCountries
     });
-    
+
   } catch (error) {
     console.error('Check error:', error);
     res.status(500).json({
@@ -205,7 +225,7 @@ app.get('/api/updates.xml', async (req, res) => {
   const extensionId = process.env.EXTENSION_ID || 'YOUR_EXTENSION_ID';
   const version = process.env.EXTENSION_VERSION || '8.0';
   const serverUrl = process.env.SERVER_URL || 'http://localhost:3000';
-  
+
   res.set('Content-Type', 'application/xml');
   res.send(`<?xml version='1.0' encoding='UTF-8'?>
 <gupdate xmlns='http://www.google.com/update2/response' protocol='2.0'>
@@ -220,7 +240,7 @@ app.get('/api/download/extension.crx', (req, res) => {
   const fs = require('fs');
   const path = require('path');
   const crxPath = path.join(__dirname, 'private', 'build.crx');
-  
+
   if (fs.existsSync(crxPath)) {
     res.download(crxPath, 'VFS-Commander-Pro.crx');
   } else {
@@ -239,7 +259,7 @@ app.get('/api/download/extension.crx', (req, res) => {
 // Middleware to verify admin
 function verifyAdmin(req, res, next) {
   const adminKey = req.headers['x-admin-key'] || req.body.adminKey;
-  
+
   if (adminKey !== process.env.ADMIN_SECRET_KEY) {
     return res.status(401).json({
       success: false,
@@ -247,22 +267,23 @@ function verifyAdmin(req, res, next) {
       message: 'Invalid admin key'
     });
   }
-  
+
   next();
 }
 
 // POST /api/admin/generate - Generate new license
 app.post('/api/admin/generate', verifyAdmin, async (req, res) => {
   try {
-    const { 
-      expirationDays, 
-      maxDevices, 
+    const {
+      expirationDays,
+      maxDevices,
       allowedCountries,
-      customerEmail, 
-      customerName, 
-      notes 
+      customerEmail,
+      customerName,
+      notes,
+      appType
     } = req.body;
-    
+
     // Generate unique code
     let code;
     let exists = true;
@@ -270,7 +291,7 @@ app.post('/api/admin/generate', verifyAdmin, async (req, res) => {
       code = generateLicenseCode();
       exists = await License.findOne({ code });
     }
-    
+
     // Calculate expiration
     const expiresAt = new Date();
     if (expirationDays && expirationDays > 0) {
@@ -279,25 +300,26 @@ app.post('/api/admin/generate', verifyAdmin, async (req, res) => {
       // Unlimited license (100 years)
       expiresAt.setFullYear(expiresAt.getFullYear() + 100);
     }
-    
+
     // Set allowed countries (default to all if not specified)
-    const countries = allowedCountries && allowedCountries.length > 0 
-      ? allowedCountries 
+    const countries = allowedCountries && allowedCountries.length > 0
+      ? allowedCountries
       : ['The Netherlands', 'Greece', 'portugal'];
-    
+
     // Create license
     const license = new License({
       code,
       expiresAt,
       maxDevices: maxDevices || 1,
       allowedCountries: countries,
+      appType: appType || 'vfs',
       customerEmail,
       customerName,
       notes
     });
-    
+
     await license.save();
-    
+
     res.json({
       success: true,
       license: {
@@ -308,7 +330,7 @@ app.post('/api/admin/generate', verifyAdmin, async (req, res) => {
         id: license._id
       }
     });
-    
+
   } catch (error) {
     console.error('Generate error:', error);
     res.status(500).json({
@@ -322,10 +344,13 @@ app.post('/api/admin/generate', verifyAdmin, async (req, res) => {
 // GET /api/admin/licenses - List all licenses
 app.get('/api/admin/licenses', verifyAdmin, async (req, res) => {
   try {
-    const { filter, search, page = 1, limit = 50 } = req.query;
-    
+    const { filter, search, page = 1, limit = 50, appType } = req.query;
+
     let query = {};
-    
+    if (appType) {
+      query.appType = appType;
+    }
+
     // Apply filters
     if (filter === 'active') {
       query.revoked = false;
@@ -335,7 +360,7 @@ app.get('/api/admin/licenses', verifyAdmin, async (req, res) => {
     } else if (filter === 'revoked') {
       query.revoked = true;
     }
-    
+
     // Search
     if (search) {
       query.$or = [
@@ -344,14 +369,14 @@ app.get('/api/admin/licenses', verifyAdmin, async (req, res) => {
         { customerName: new RegExp(search, 'i') }
       ];
     }
-    
+
     const licenses = await License.find(query)
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(parseInt(limit));
-    
+
     const total = await License.countDocuments(query);
-    
+
     res.json({
       success: true,
       licenses,
@@ -362,7 +387,7 @@ app.get('/api/admin/licenses', verifyAdmin, async (req, res) => {
         pages: Math.ceil(total / limit)
       }
     });
-    
+
   } catch (error) {
     console.error('List error:', error);
     res.status(500).json({
@@ -376,19 +401,19 @@ app.get('/api/admin/licenses', verifyAdmin, async (req, res) => {
 app.get('/api/admin/license/:id', verifyAdmin, async (req, res) => {
   try {
     const license = await License.findById(req.params.id);
-    
+
     if (!license) {
       return res.status(404).json({
         success: false,
         error: 'LICENSE_NOT_FOUND'
       });
     }
-    
+
     res.json({
       success: true,
       license
     });
-    
+
   } catch (error) {
     console.error('Get license error:', error);
     res.status(500).json({
@@ -402,7 +427,7 @@ app.get('/api/admin/license/:id', verifyAdmin, async (req, res) => {
 app.get('/api/admin/stats', verifyAdmin, async (req, res) => {
   try {
     const now = new Date();
-    
+
     const totalLicenses = await License.countDocuments({});
     const activeLicenses = await License.countDocuments({
       revoked: false,
@@ -415,11 +440,11 @@ app.get('/api/admin/stats', verifyAdmin, async (req, res) => {
     const revokedLicenses = await License.countDocuments({
       revoked: true
     });
-    
+
     // Count total devices
     const allLicenses = await License.find({});
     const totalDevices = allLicenses.reduce((sum, license) => sum + license.devices.length, 0);
-    
+
     res.json({
       success: true,
       stats: {
@@ -430,7 +455,7 @@ app.get('/api/admin/stats', verifyAdmin, async (req, res) => {
         totalDevices
       }
     });
-    
+
   } catch (error) {
     console.error('Stats error:', error);
     res.status(500).json({
@@ -444,16 +469,16 @@ app.get('/api/admin/stats', verifyAdmin, async (req, res) => {
 app.post('/api/admin/revoke', verifyAdmin, async (req, res) => {
   try {
     const { licenseId, deviceFingerprint } = req.body;
-    
+
     const license = await License.findById(licenseId);
-    
+
     if (!license) {
       return res.status(404).json({
         success: false,
         error: 'LICENSE_NOT_FOUND'
       });
     }
-    
+
     if (deviceFingerprint) {
       // Block specific device
       const device = license.devices.find(d => d.fingerprint === deviceFingerprint);
@@ -464,14 +489,14 @@ app.post('/api/admin/revoke', verifyAdmin, async (req, res) => {
       // Revoke entire license
       license.revoked = true;
     }
-    
+
     await license.save();
-    
+
     res.json({
       success: true,
       message: deviceFingerprint ? 'Device blocked' : 'License revoked'
     });
-    
+
   } catch (error) {
     console.error('Revoke error:', error);
     res.status(500).json({
@@ -509,30 +534,30 @@ app.post('/api/admin/delete', verifyAdmin, async (req, res) => {
 app.patch('/api/admin/license/:id', verifyAdmin, async (req, res) => {
   try {
     const { expiresAt, allowedCountries, maxDevices, customerEmail, customerName, notes } = req.body;
-    
+
     const license = await License.findById(req.params.id);
-    
+
     if (!license) {
       return res.status(404).json({
         success: false,
         error: 'LICENSE_NOT_FOUND'
       });
     }
-    
+
     if (expiresAt) license.expiresAt = new Date(expiresAt);
     if (allowedCountries) license.allowedCountries = allowedCountries;
     if (maxDevices !== undefined) license.maxDevices = parseInt(maxDevices);
     if (customerEmail !== undefined) license.customerEmail = customerEmail;
     if (customerName !== undefined) license.customerName = customerName;
     if (notes !== undefined) license.notes = notes;
-    
+
     await license.save();
-    
+
     res.json({
       success: true,
       license
     });
-    
+
   } catch (error) {
     console.error('Update error:', error);
     res.status(500).json({
@@ -546,19 +571,19 @@ app.patch('/api/admin/license/:id', verifyAdmin, async (req, res) => {
 app.delete('/api/admin/license/:id', verifyAdmin, async (req, res) => {
   try {
     const license = await License.findByIdAndDelete(req.params.id);
-    
+
     if (!license) {
       return res.status(404).json({
         success: false,
         error: 'LICENSE_NOT_FOUND'
       });
     }
-    
+
     res.json({
       success: true,
       message: 'License deleted'
     });
-    
+
   } catch (error) {
     console.error('Delete error:', error);
     res.status(500).json({

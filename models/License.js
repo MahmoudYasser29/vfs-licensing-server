@@ -61,6 +61,11 @@ const licenseSchema = new mongoose.Schema({
     type: [String],
     default: ['The Netherlands', 'Greece', 'portugal'] // All countries by default
   },
+  appType: {
+    type: String,
+    enum: ['vfs', 'bls'],
+    default: 'vfs'
+  },
   devices: [deviceSchema],
   notes: String,
   customerEmail: String,
