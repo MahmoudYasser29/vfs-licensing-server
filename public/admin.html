@@ -304,6 +304,13 @@
             <form id="generateForm">
                 <div class="form-grid">
                     <div class="form-group">
+                        <label>نوع التطبيق</label>
+                        <select id="appType">
+                            <option value="vfs">VFS Rocket</option>
+                            <option value="bls">BLS Commander</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
                         <label>المدة (بالأيام)</label>
                         <input type="number" id="expirationDays" value="30" min="1">
                     </div>
@@ -345,12 +352,20 @@
 
         <!-- Licenses List -->
         <div class="licenses">
-            <h2>📋 جميع الأكواد</h2>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2>📋 جميع الأكواد</h2>
+                <select id="filterAppType" style="padding: 8px; border-radius: 5px; border: 1px solid #ccc; font-family: inherit;" onchange="loadLicenses()">
+                    <option value="">كل التطبيقات (All)</option>
+                    <option value="vfs">VFS Rocket</option>
+                    <option value="bls">BLS Commander</option>
+                </select>
+            </div>
             <div class="loading" id="loading">جاري التحميل...</div>
             <table id="licensesTable" style="display: none;">
                 <thead>
                     <tr>
                         <th>الإجراءات</th>
+                        <th>التطبيق</th>
                         <th>الأجهزة المسموحة</th>
                         <th>السفارات</th>
                         <th>الحالة</th>
@@ -452,8 +467,11 @@
         // Load Licenses
         async function loadLicenses() {
             try {
+                const appTypeFilter = document.getElementById('filterAppType') ? document.getElementById('filterAppType').value : '';
+                const queryParams = appTypeFilter ? `?appType=${appTypeFilter}` : '';
+                
                 document.getElementById('loading').style.display = 'block';
-                const res = await adminFetch('/api/admin/licenses');
+                const res = await adminFetch(`/api/admin/licenses${queryParams}`);
                 const data = await res.json();
                 
                 if (data.success) {
@@ -479,6 +497,11 @@
                         // Countries
                         const countries = license.allowedCountries.join(', ');
                         
+                        // App Type
+                        const appTypeBadge = license.appType === 'bls' 
+                            ? '<span style="background: #2563eb; color: white; padding: 3px 8px; border-radius: 4px; font-size: 11px;">BLS</span>' 
+                            : '<span style="background: #ea580c; color: white; padding: 3px 8px; border-radius: 4px; font-size: 11px;">VFS</span>';
+                        
                         // Expiry date
                         const expiryDate = expiresAt.toLocaleDateString('ar-EG');
                         
@@ -493,6 +516,7 @@
                                     <button class="btn btn-danger btn-small" style="background:#dc3545;" onclick="deleteLicense('${license._id}')"><i class="fas fa-trash"></i> حذف</button>
                                 </div>
                             </td>
+                            <td>${appTypeBadge}</td>
                             <td><strong>${license.devices.length}</strong> / ${license.maxDevices}</td>
                             <td style="font-size: 12px;">${countries}</td>
                             <td>${statusBadge}</td>
@@ -523,6 +547,7 @@
             const name = document.getElementById('customerName').value;
             const email = document.getElementById('customerEmail').value;
             const notes = document.getElementById('notes').value;
+            const appTypeValue = document.getElementById('appType').value;
             
             // Get selected countries
             const countryCheckboxes = document.querySelectorAll('input[name="country"]:checked');
@@ -542,7 +567,8 @@
                         allowedCountries: countries,
                         customerName: name,
                         customerEmail: email,
-                        notes: notes
+                        notes: notes,
+                        appType: appTypeValue
                     })
                 });
                 
