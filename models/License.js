@@ -59,7 +59,7 @@ const licenseSchema = new mongoose.Schema({
   },
   allowedCountries: {
     type: [String],
-    default: ['The Netherlands', 'Greece', 'portugal'] // All countries by default
+    default: ['The Netherlands', 'Greece', 'portugal', 'Hungary', 'Austria'] // All countries by default
   },
   appType: {
     type: String,
