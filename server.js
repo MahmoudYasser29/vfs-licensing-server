@@ -530,6 +530,42 @@ app.post('/api/admin/delete', verifyAdmin, async (req, res) => {
   }
 });
 
+// POST /api/admin/license/:id/renew - Renew License
+app.post('/api/admin/license/:id/renew', verifyAdmin, async (req, res) => {
+  try {
+    const { days } = req.body;
+    const license = await License.findById(req.params.id);
+
+    if (!license) {
+      return res.status(404).json({ success: false, error: 'LICENSE_NOT_FOUND' });
+    }
+
+    const additionalDays = parseInt(days);
+    if (isNaN(additionalDays) || additionalDays <= 0) {
+      return res.status(400).json({ success: false, message: 'عدد الأيام غير صالح' });
+    }
+
+    // Determine the base date to add days to.
+    // If license is expired, start from today. If still valid, start from current expiry.
+    const now = new Date();
+    const baseDate = (license.expiresAt && license.expiresAt > now) ? license.expiresAt : now;
+    
+    // Add the days
+    baseDate.setDate(baseDate.getDate() + additionalDays);
+    license.expiresAt = baseDate;
+    
+    // Auto-unrevoke if it was revoked (user convenience for renewal)
+    license.revoked = false;
+
+    await license.save();
+
+    res.json({ success: true, message: 'تم تجديد الاشتراك بنجاح', expiresAt: license.expiresAt });
+  } catch (error) {
+    console.error('Renew error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // PATCH /api/admin/license/:id - Update license
 app.patch('/api/admin/license/:id', verifyAdmin, async (req, res) => {
   try {

@@ -63,7 +63,7 @@ const licenseSchema = new mongoose.Schema({
   },
   appType: {
     type: String,
-    enum: ['vfs', 'bls'],
+    enum: ['vfs', 'bls', 'bls-otp', 'bls-book', 'tls'],
     default: 'vfs'
   },
   devices: [deviceSchema],

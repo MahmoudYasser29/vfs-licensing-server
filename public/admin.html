@@ -307,7 +307,10 @@
                         <label>نوع التطبيق</label>
                         <select id="appType">
                             <option value="vfs">VFS Rocket</option>
-                            <option value="bls">BLS Commander</option>
+                            <option value="bls-otp">BLS - OTP</option>
+                            <option value="bls-book">BLS - Book</option>
+                            <option value="tls">TLS</option>
+                            <option value="bls" style="color: gray;">BLS Old (Legacy)</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -363,7 +366,9 @@
                 <select id="filterAppType" style="padding: 8px; border-radius: 5px; border: 1px solid #ccc; font-family: inherit;" onchange="loadLicenses()">
                     <option value="">كل التطبيقات (All)</option>
                     <option value="vfs">VFS Rocket</option>
-                    <option value="bls">BLS Commander</option>
+                    <option value="bls-otp">BLS - OTP</option>
+                    <option value="bls-book">BLS - Book</option>
+                    <option value="tls">TLS</option>
                 </select>
             </div>
             <div class="loading" id="loading">جاري التحميل...</div>
@@ -376,6 +381,7 @@
                         <th>السفارات</th>
                         <th>الحالة</th>
                         <th>تنتهي في</th>
+                        <th>ملاحظات</th>
                         <th>العميل</th>
                         <th>الكود</th>
                     </tr>
@@ -415,6 +421,24 @@
                 <div style="margin-top: 20px; display: flex; gap: 10px;">
                     <button type="submit" class="btn btn-primary" style="flex: 1;">حفظ التعديلات</button>
                     <button type="button" class="btn" style="background: #ccc; flex: 1;" onclick="closeEditModal()">إلغاء</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Renew License Modal -->
+    <div id="renewModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeRenewModal()">&times;</span>
+            <h2 style="margin-bottom: 20px;">🔄 تجديد الاشتراك</h2>
+            <form id="renewForm">
+                <div class="form-group">
+                    <label>عدد الأيام المراد إضافتها (تُضاف لتاريخ اليوم أو تاريخ الانتهاء الحالي أيهما أبعد)</label>
+                    <input type="number" id="renewDays" min="1" required>
+                </div>
+                <div style="margin-top: 20px; display: flex; gap: 10px;">
+                    <button type="submit" class="btn btn-success" style="background:#28a745; color: white; flex: 1;">تأكيد التجديد</button>
+                    <button type="button" class="btn" style="background: #ccc; flex: 1;" onclick="closeRenewModal()">إلغاء</button>
                 </div>
             </form>
         </div>
@@ -504,9 +528,15 @@
                         const countries = license.allowedCountries.join(', ');
                         
                         // App Type
-                        const appTypeBadge = license.appType === 'bls' 
-                            ? '<span style="background: #2563eb; color: white; padding: 3px 8px; border-radius: 4px; font-size: 11px;">BLS</span>' 
-                            : '<span style="background: #ea580c; color: white; padding: 3px 8px; border-radius: 4px; font-size: 11px;">VFS</span>';
+                        let appTypeBadge = '';
+                        switch(license.appType) {
+                            case 'vfs': appTypeBadge = '<span style="background: #ea580c; color: white; padding: 3px 8px; border-radius: 4px; font-size: 11px;">VFS</span>'; break;
+                            case 'bls-otp': appTypeBadge = '<span style="background: #2563eb; color: white; padding: 3px 8px; border-radius: 4px; font-size: 11px;">BLS-OTP</span>'; break;
+                            case 'bls-book': appTypeBadge = '<span style="background: #1e3a8a; color: white; padding: 3px 8px; border-radius: 4px; font-size: 11px;">BLS-Book</span>'; break;
+                            case 'tls': appTypeBadge = '<span style="background: #10b981; color: white; padding: 3px 8px; border-radius: 4px; font-size: 11px;">TLS</span>'; break;
+                            case 'bls': appTypeBadge = '<span style="background: #6b7280; color: white; padding: 3px 8px; border-radius: 4px; font-size: 11px;">BLS</span>'; break;
+                            default: appTypeBadge = '<span style="background: #6b7280; color: white; padding: 3px 8px; border-radius: 4px; font-size: 11px;">'+license.appType+'</span>';
+                        }
                         
                         // Expiry date
                         const expiryDate = expiresAt.toLocaleDateString('ar-EG');
@@ -514,6 +544,7 @@
                         row.innerHTML = `
                             <td>
                                 <div style="display: flex; gap: 5px; justify-content: flex-end;">
+                                    <button class="btn btn-success btn-small" style="background:#28a745;" onclick="openRenewModal('${license._id}')">تجديد</button>
                                     <button class="btn btn-primary btn-small" onclick="openEditModal('${license._id}', ${license.maxDevices})">تعديل</button>
                                     ${license.revoked 
                                         ? `<button class="btn btn-success btn-small" onclick="unrevokeLicense('${license._id}')">فك الحظر</button>` 
@@ -527,6 +558,7 @@
                             <td style="font-size: 12px;">${countries}</td>
                             <td>${statusBadge}</td>
                             <td>${expiryDate}</td>
+                            <td style="font-size: 12px; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${license.notes || ''}">${license.notes || '-'}</td>
                             <td>${license.customerName || '-'}</td>
                             <td><span class="code">${license.code}</span></td>
                         `;
@@ -738,6 +770,46 @@
                     loadStats();
                 } else {
                     showError(data.message || 'حدث خطأ في التحديث');
+                }
+            } catch (error) {
+                showError('خطأ في الاتصال');
+                console.error(error);
+            }
+        });
+
+        // Renew License Functions
+        let currentRenewLicenseId = null;
+
+        function openRenewModal(licenseId) {
+            currentRenewLicenseId = licenseId;
+            document.getElementById('renewDays').value = 30; // Default to 30 days
+            document.getElementById('renewModal').style.display = 'block';
+        }
+
+        function closeRenewModal() {
+            document.getElementById('renewModal').style.display = 'none';
+            currentRenewLicenseId = null;
+        }
+
+        document.getElementById('renewForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const days = parseInt(document.getElementById('renewDays').value);
+            if (!currentRenewLicenseId) return;
+            
+            try {
+                const res = await adminFetch(`/api/admin/license/${currentRenewLicenseId}/renew`, {
+                    method: 'POST',
+                    body: JSON.stringify({ days })
+                });
+                
+                const data = await res.json();
+                if (data.success) {
+                    showSuccess('تم التجديد بنجاح!');
+                    closeRenewModal();
+                    loadLicenses();
+                    loadStats();
+                } else {
+                    showError(data.message || 'حدث خطأ في التجديد');
                 }
             } catch (error) {
                 showError('خطأ في الاتصال');
