@@ -6,14 +6,8 @@ const deviceSchema = new mongoose.Schema({
     required: true
   },
   deviceInfo: {
-    browser: String,
-    browserVersion: String,
-    os: String,
-    platform: String,
-    language: String,
-    timezone: String,
-    screenResolution: String,
-    hardwareConcurrency: Number
+    type: mongoose.Schema.Types.Mixed,
+    default: {}
   },
   firstActivated: {
     type: Date,
@@ -59,11 +53,11 @@ const licenseSchema = new mongoose.Schema({
   },
   allowedCountries: {
     type: [String],
-    default: ['The Netherlands', 'Greece', 'portugal', 'Hungary', 'Austria'] // All countries by default
+    default: ['Poland', 'The Netherlands', 'Greece', 'portugal', 'Hungary', 'Austria']
   },
   appType: {
     type: String,
-    enum: ['vfs', 'bls', 'bls-otp', 'bls-book', 'tls'],
+    enum: ['vfs', 'bls', 'bls-otp', 'bls-book', 'tls', 'poland'],
     default: 'vfs'
   },
   devices: [deviceSchema],

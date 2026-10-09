@@ -302,9 +302,10 @@ app.post('/api/admin/generate', verifyAdmin, async (req, res) => {
     }
 
     // Set allowed countries (default to all if not specified)
+    const defaultCountries = (appType === 'poland') ? ['Poland'] : ['The Netherlands', 'Greece', 'portugal'];
     const countries = allowedCountries && allowedCountries.length > 0
       ? allowedCountries
-      : ['The Netherlands', 'Greece', 'portugal'];
+      : defaultCountries;
 
     // Create license
     const license = new License({

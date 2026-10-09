@@ -267,8 +267,8 @@
 <body>
     <div class="container">
         <header>
-            <h1>🔐 VFS License Manager</h1>
-            <p>إدارة الأكواد والتراخيص</p>
+            <h1>🔐 Universal License Manager (VFS / BLS / TLS / Poland)</h1>
+            <p>إدارة الأكواد والتراخيص لبولندا ولكافة السفارات</p>
         </header>
 
         <div class="alert alert-success" id="successAlert"></div>
@@ -306,6 +306,7 @@
                     <div class="form-group">
                         <label>نوع التطبيق</label>
                         <select id="appType">
+                            <option value="poland">🇵🇱 Poland E-Konsulat Sniper</option>
                             <option value="vfs">VFS Rocket</option>
                             <option value="bls-otp">BLS - OTP</option>
                             <option value="bls-book">BLS - Book</option>
@@ -333,6 +334,9 @@
 
                 <div class="checkbox-group">
                     <h4>السفارات المسموحة:</h4>
+                    <label>
+                        <input type="checkbox" name="country" value="Poland" checked> بولندا (Poland)
+                    </label>
                     <label>
                         <input type="checkbox" name="country" value="The Netherlands" checked> هولندا
                     </label>
@@ -365,6 +369,7 @@
                 <h2>📋 جميع الأكواد</h2>
                 <select id="filterAppType" style="padding: 8px; border-radius: 5px; border: 1px solid #ccc; font-family: inherit;" onchange="loadLicenses()">
                     <option value="">كل التطبيقات (All)</option>
+                    <option value="poland">🇵🇱 Poland (بولندا)</option>
                     <option value="vfs">VFS Rocket</option>
                     <option value="bls-otp">BLS - OTP</option>
                     <option value="bls-book">BLS - Book</option>
@@ -530,6 +535,7 @@
                         // App Type
                         let appTypeBadge = '';
                         switch(license.appType) {
+                            case 'poland': appTypeBadge = '<span style="background: #dc2626; color: white; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold;">🇵🇱 Poland</span>'; break;
                             case 'vfs': appTypeBadge = '<span style="background: #ea580c; color: white; padding: 3px 8px; border-radius: 4px; font-size: 11px;">VFS</span>'; break;
                             case 'bls-otp': appTypeBadge = '<span style="background: #2563eb; color: white; padding: 3px 8px; border-radius: 4px; font-size: 11px;">BLS-OTP</span>'; break;
                             case 'bls-book': appTypeBadge = '<span style="background: #1e3a8a; color: white; padding: 3px 8px; border-radius: 4px; font-size: 11px;">BLS-Book</span>'; break;
